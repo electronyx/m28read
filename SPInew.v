@@ -67,7 +67,8 @@ reg [5:0] bit_cntr=6'b000000;
 wire [5:0] new_counter;
 assign new_counter = bit_cntr -6'b000001;
 
-
+wire [5:0] long_msg_length;
+assign long_msg_length=6'b001000*InMsgByteCount-1'b1;
 
 	always@(posedge CLK ) begin
 
@@ -111,7 +112,7 @@ assign new_counter = bit_cntr -6'b000001;
 					 else if(SPI_MSG_TYPE==STD_TWO_BY)bit_cntr<=6'b001111; //send 2bytes = countr = 23
 					 else if(SPI_MSG_TYPE==THREE_BY)  bit_cntr<=6'b010111; //send 3bytes
 					 else if(SPI_MSG_TYPE==SIX_BY)    bit_cntr<=6'b101111; //send 6bytes
-					 else if(SPI_MSG_TYPE==LONG)      bit_cntr<=6'b001000*InMsgByteCount-1'b1;
+					 else if(SPI_MSG_TYPE==LONG)      bit_cntr<=long_msg_length;
 					 else                             bit_cntr<=6'b001111;
 					 busy<=1'b1;
 					 output_reg<=output_data;
@@ -137,7 +138,7 @@ assign new_counter = bit_cntr -6'b000001;
 					 if(SCK_fallingedge)//sample the data from MOSI to register
 					 begin
 					    received_data<={32'h00000000,received_data[14:0],MOSI};
-						 bit_cntr<=bit_cntr-1'b1;
+						 bit_cntr<=new_counter;
 					 end
 	             stateSPI<=RECEIVE;
 				 end
@@ -159,7 +160,7 @@ assign new_counter = bit_cntr -6'b000001;
 					 if(SCK_fallingedge)//sample the data from MOSI to register
 					 begin
 					 	 long_dataIN<={long_dataIN[46:0],MOSI};
-					    bit_cntr<=bit_cntr-1'b1;
+					    bit_cntr<=new_counter;
 					 end begin
 	                stateSPI<=RECEIVE_LONG;
 						 long_dataIN<=long_dataIN;
