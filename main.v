@@ -101,7 +101,7 @@ CommandDecoder cmddec(mclk,RESET,bufSCLK, MISO, MOSI,CSEL,SCK,CS,SI_IO0,SO_IO1,W
 
    PLL_BASE #(
       .BANDWIDTH("OPTIMIZED"),             // "HIGH", "LOW" or "OPTIMIZED" 
-      .CLKFBOUT_MULT(50),                   // Multiply value for all CLKOUT clock outputs (1-64)
+      .CLKFBOUT_MULT(25),                   // Multiply value for all CLKOUT clock outputs (1-64)
       .CLKFBOUT_PHASE(0.0),                // Phase offset in degrees of the clock feedback output (0.0-360.0).
       .CLKIN_PERIOD(50),                  // Input clock period in ns to ps resolution (i.e. 33.333 is 30
                                            // MHz).
