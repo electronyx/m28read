@@ -79,7 +79,7 @@ assign new_counter = bit_cntr -6'b000001;
 			output_reg<=48'h000000000000;	
 			//output_reg<=0;
          bit_cntr<=6'b000000;	
-         long_dataIN<=0;			
+         long_dataIN<=48'h000000000000;			
 		end
 		else 
 		begin
@@ -92,7 +92,7 @@ assign new_counter = bit_cntr -6'b000001;
 					    stateSPI<=RECEIVE_LONG;
 					    bit_cntr<=6'b101111;//47
 						 //bit_cntr<=(6'b001000*InMsgByteCount)-1'b1;
-						 long_dataIN<=0;
+						 long_dataIN<=48'h000000000000;
 						 received_data<=received_data;
 					 end
 					 else begin
