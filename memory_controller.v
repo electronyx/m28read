@@ -60,7 +60,7 @@ module memory_controller(CLK,SCLK,oCS,SI_IO0,SO_IO1,WP_IO2,HOLD_IO3,reset,MEMDAT
 
 	reg [35:0] delay_counter;
 	
-  spi_cmd sc(.CLK(CLK),.reset(reset),.SCLK(SCLK),.CS(oCS), .SI_IO0(SI_IO0), .SO_IO1(SO_IO1), .WP_IO2(WP_IO2), .HOLD_IO3(HOLD_IO3),
+  spi_cmd sc(.CLK(CLK),.RST(reset),.SCLK(SCLK),.CS(oCS), .SI_IO0(SI_IO0), .SO_IO1(SO_IO1), .WP_IO2(WP_IO2), .HOLD_IO3(HOLD_IO3),
         .busy(spi_busy), .trigger(spi_trigger), .data_in_count(data_in_count), .data_out_count(data_out_count),
    .data_in(data_in), .data_out(mem_data_out),.quad(MEMQUAD));
 	//CLK disconnected

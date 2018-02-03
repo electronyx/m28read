@@ -80,7 +80,7 @@ reg [3:0]InMsgByteCount;
 reg LongMsgComing;
 
 wire [47:0] long_dataSPI;
-
+wire sent;
 	SPInew SPIRaspi (
 		.CLK(CLK), 
 		.RST(CMD_RST), 
@@ -93,6 +93,7 @@ wire [47:0] long_dataSPI;
 		.received_data(recv_data),
 		.output_data(send_data),
 		.received(SPIreceived),
+		.sent(sent),
 		.SPI_MSG_TYPE(SPI_MSG_TYPE),
 		.InMsgByteCount(InMsgByteCount),
 	   .LongMsgComing(LongMsgComing),
