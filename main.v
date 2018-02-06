@@ -115,7 +115,7 @@ CommandDecoder cmddec(mclk,RESET,bufSCLK, MISO, MOSI,CSEL,SCK,CS,SI_IO0,SO_IO1,W
    );
 //80MHz
    DCM_CLKGEN #(
-      .CLKFXDV_DIVIDE(2),       // CLKFXDV divide value (2, 4, 8, 16, 32)
+      .CLKFXDV_DIVIDE(8),       // CLKFXDV divide value (2, 4, 8, 16, 32)
       .CLKFX_DIVIDE(1),         // Divide value - D - (1-256)
       .CLKFX_MD_MAX(0.0),       // Specify maximum M/D ratio for timing anlysis
       .CLKFX_MULTIPLY(25),       // Multiply value - M - (2-256)

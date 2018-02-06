@@ -230,7 +230,7 @@ module SPInew(
 parameter NO_BY=3'b000, ONE_BY=3'b001, STD_TWO_BY=3'b010, THREE_BY= 3'b011 ,SIX_BY=3'b110, LONG = 3'b111 ;
 
 parameter           IDLE=5'b00000,  RECEIVE=5'b00001,   SEND=5'b00010, WAIT_FOR_START=5'b00011, RECEIVE_LONG=5'b00100;
-	 
+parameter      PREP_SEND=5'b00101; 
 reg [2:0] stateSPI =IDLE;
 
 //start message
@@ -292,16 +292,16 @@ assign new_counter = bit_cntr -6'b000001;
 				 end
 				 else if(send_trigger&&!busy)
 				 begin
-				    stateSPI<=SEND;//transmission starts 
+				    stateSPI<=PREP_SEND;//transmission starts 
 					 if(SPI_MSG_TYPE     ==ONE_BY)    bit_cntr<=6'b000111;
                 //else if(SPI_MSG_TYPE==3'b001)  bit_cntr<=12'b111111111111; // standard command is 2B -1 = 15 (4'b1111)
 					 else if(SPI_MSG_TYPE==STD_TWO_BY)bit_cntr<=6'b001111; //send 2bytes = countr = 23
 					 else if(SPI_MSG_TYPE==THREE_BY)  bit_cntr<=6'b010111; //send 3bytes
 					 else if(SPI_MSG_TYPE==SIX_BY)    bit_cntr<=6'b101111; //send 6bytes
-					 else if(SPI_MSG_TYPE==LONG)      bit_cntr<=(InMsgByteCount<<8)-1'b1;
+					 else if(SPI_MSG_TYPE==LONG)      bit_cntr<=(InMsgByteCount<<3)-1'b1;
 					 else                             bit_cntr<=6'b001111;
 					 busy<=1'b1;
-					 output_reg<=output_data;
+					 
 					 //rMISO<=0;
 					 received_data<=48'h000000000000;
 					 received<=1'b0;
@@ -317,6 +317,11 @@ assign new_counter = bit_cntr -6'b000001;
          
 				 end
 			  end
+			PREP_SEND:
+			begin
+			   stateSPI<=SEND;
+				output_reg<=output_data;
+			end
 			RECEIVE:
 			  begin
 				 if(bit_cntr>6'b000000) begin

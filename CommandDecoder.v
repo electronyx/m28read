@@ -106,8 +106,8 @@ wire sent;
 	reg MEMTRIG;
 	reg MEMQUAD; 
 	wire MEM_busy;
- //  memory_controller memory_controller(.CLK(CLK),.SCLK(MEM_SCK),.oCS(MEM_CS),.SI_IO0(SI_IO0),.SO_IO1(SO_IO1),.WP_IO2(WP_IO2),.HOLD_IO3(HOLD_IO3),
-	//.reset(CMD_RST),.MEMDATA(MEMDATA),.MEMCMD(MEMCMD),.MEMADDR(MEMADDR),.MEMVAL(MEMVAL),.MEMTRIG(MEMTRIG),.MEMQUAD(MEMQUAD),.MEM_CTRL_busy(MEM_busy));
+   memory_controller memory_controller(.CLK(CLK),.SCLK(MEM_SCK),.oCS(MEM_CS),.SI_IO0(SI_IO0),.SO_IO1(SO_IO1),.WP_IO2(WP_IO2),.HOLD_IO3(HOLD_IO3),
+     .reset(CMD_RST),.MEMDATA(MEMDATA),.MEMCMD(MEMCMD),.MEMADDR(MEMADDR),.MEMVAL(MEMVAL),.MEMTRIG(MEMTRIG),.MEMQUAD(MEMQUAD),.MEM_CTRL_busy(MEM_busy));
 
     
 // --------------------------------------------------------------------------------------------------------
@@ -248,6 +248,7 @@ always@(posedge CLK) begin
 	else if(CMDstate==SEND_ID)                        send_data<={48'h000000000000,16'b0111100101110101};
 	//                            mem val. received, trigger off, spi not busy and there is something to send..
 	else if(CMDstate==MEM_WAIT && !MEM_busy&&!MEMTRIG &&!SPI_busy && MEM_MSG_TYPE!=NO_BY) send_data<={16'h0000,MEMDATA[47:0]};
+	
 end
 //-------------------------------
 //--------------------------------Internal test registers
@@ -288,7 +289,8 @@ end
 always@(posedge CLK) begin
    if(CMD_RST) SPI_MSG_TYPE<=STD_TWO_BY;
 	else if(CMDstate==GET_REGISTERS || CMDstate==SEND_ID) SPI_MSG_TYPE<=STD_TWO_BY;
-	else if(LONG_MSG_WAIT) SPI_MSG_TYPE<=LONG;
+	else if(CMDstate==LONG_MSG_WAIT) SPI_MSG_TYPE<=LONG;
+	else if(CMDstate==GET_MEM_ID) SPI_MSG_TYPE<=SIX_BY;
    else if(CMDstate==GET_MEM_STREG) begin
 		if(ADDR==4'b0000) SPI_MSG_TYPE<=ONE_BY; 
 		else if(ADDR==4'b0001) SPI_MSG_TYPE<=ONE_BY;
@@ -296,12 +298,11 @@ always@(posedge CLK) begin
 		else if(ADDR==4'b0011) SPI_MSG_TYPE<=NO_BY;
 		else if(ADDR==4'b0100) SPI_MSG_TYPE<=NO_BY;
 	end
-	else SPI_MSG_TYPE=SPI_MSG_TYPE;
 end
 
 //SPI: long message counter
 // if(CMD_RST) InMsgByteCount=0 else if (CMDstate==RECEIVE_LONG_MSG) InMsgByteCount=ADDR;
-assign InMsgByteCount= CMD_RST?4'b0000:((CMDstate==RECEIVE_LONG_MSG||CMDstate==LONG_MSG_WAIT)?ADDR:4'b0000);
+assign InMsgByteCount= CMD_RST?4'b0000:((CMDstate==RECEIVE_LONG_MSG||CMDstate==LONG_MSG_WAIT||SPI_TR_WAIT)?ADDR:4'b0000);
 
 //SPI: long message coming flag
 always@(posedge CLK) begin
@@ -317,7 +318,7 @@ end
 //--------------------------------------------------------------
 //MEM:command, address, value
 
-always@(*)begin
+always@(posedge CLK)begin
    if(CMD_RST || CMDstate==IDLE) begin
 	   MEMCMD =8'b00;
       MEMADDR=24'b000000;		// 3B address
@@ -333,10 +334,11 @@ always@(*)begin
 		else if(ADDR==4'b0011) MEMCMD=8'h06; //WREN
 		else if(ADDR==4'b0100) MEMCMD=8'hC7; //bulk erase - all to 1
    end
+	
 end
 
 //MEM: trigger
-always@(*) begin
+always@(posedge CLK) begin
    if(CMD_RST || CMDstate==IDLE)                                MEMTRIG=1'b0;
    else if(CMDstate==GET_MEM_ID || CMDstate==GET_MEM_STREG)     MEMTRIG=1'b1;
    else if(CMDstate==MEM_WAIT && !MEM_busy&& MEMTRIG) MEMTRIG=1'b1; //keep MEMTRIG untill the MEMbusy goes high
@@ -344,6 +346,23 @@ always@(*) begin
 	else  MEMTRIG=1'b0;
 end
 	
+//MEM:quad
+always@(posedge CLK) begin
+   if(CMD_RST) MEMQUAD<=1'b0;
+	else if(CMDstate==IDLE) MEMQUAD<=1'b0;
+
+end	
+
+//MEM:MSG type	
+
+always@(posedge CLK) begin
+   if(CMD_RST) MEM_MSG_TYPE<=NO_BY;
+	else if(CMDstate==GET_MEM_ID) MEM_MSG_TYPE<=SIX_BY;
+	else if(CMDstate==GET_MEM_STREG && (ADDR==4'b0000 || ADDR==4'b0001||ADDR==4'b0010))MEM_MSG_TYPE<=ONE_BY; 
+   else if(CMDstate==GET_MEM_STREG &&(ADDR==4'b0011 ||ADDR==4'b0100)) MEM_MSG_TYPE<=NO_BY; 
+
+end
+
 endmodule
 /*
 

@@ -62,10 +62,10 @@ module spi_cmd(CLK,RST,SCLK,CS, SI_IO0,SO_IO1,WP_IO2,HOLD_IO3,
   
   
   wire [2:0] width = quad?3'b100:3'b001;
-  wire [2:0] width_1 = width -1'b1;
+  //wire [2:0] width_1 = width -1'b1;
 
 
-  parameter IDLE=4'b0000, SEND=4'b0001, READ=4'b0010, WAIT_ONE_BEFORE_READ=4'b0100;
+  parameter IDLE=4'b0000, SEND=4'b0001, READ=4'b0010, LAST_READ=4'b0011, WAIT_ONE_BEFORE_READ=4'b0100;
   reg [3:0] MEM_SPI_state;
   reg [3:0] next_MEM_SPI_state;
  
@@ -107,55 +107,55 @@ always@(*) begin
 		end
 		SEND:
 		begin
-		   if(send_bit_cntr>width_1) next_MEM_SPI_state=SEND;
+		   if(send_bit_cntr>width-1'b1) next_MEM_SPI_state=SEND;
 		   else if(send_bit_cntr==12'h000 && data_out_count!=4'b0000) next_MEM_SPI_state=WAIT_ONE_BEFORE_READ;
 		   else if(send_bit_cntr==12'h000 && data_out_count==4'b0000) next_MEM_SPI_state=IDLE;
 		end
 		WAIT_ONE_BEFORE_READ:
 		   next_MEM_SPI_state=READ;
 		READ:
-		   if(read_bit_cntr>width_1)      next_MEM_SPI_state=READ;
-			else if(read_bit_cntr==width_1)next_MEM_SPI_state=IDLE;
+		   if(read_bit_cntr>width-1'b1)      next_MEM_SPI_state=READ;
+			else if(read_bit_cntr==width-1'b1)next_MEM_SPI_state=LAST_READ;
+		LAST_READ:
+		   if(SCK_fallingedge) next_MEM_SPI_state=IDLE;
+			else next_MEM_SPI_state=LAST_READ;
 	endcase
 end
 
 
 //---------------------- send bit counter handling
-always@(negedge SCLK or posedge RST) begin
+always@(posedge CLK) begin
    if(RST) send_bit_cntr<=12'h000;
 	else if(MEM_SPI_state == IDLE && trigger && !busy) send_bit_cntr<=(data_in_count<<3);//load counter = bytes to bits
-   else if(MEM_SPI_state == SEND) begin
-	   if(send_bit_cntr>width_1) send_bit_cntr<=next_send_bit_cntr; //count 
-	end
+   else if(SCK_fallingedge && MEM_SPI_state == SEND && (send_bit_cntr>width-1'b1) ) send_bit_cntr<=next_send_bit_cntr;
+	
 end
 //---------------------- read bit counter handling
-always@(posedge SCLK or posedge RST) begin
+always@(posedge CLK) begin
    if(RST) read_bit_cntr<=12'h000;
 	else if(MEM_SPI_state == IDLE && trigger && !busy) read_bit_cntr<=(data_out_count<<3);//load counter = bytes to bits
-   else if(MEM_SPI_state == READ) begin
-	   if(read_bit_cntr>width_1) read_bit_cntr<=next_read_bit_cntr; //count 
-	end
+   else if(SCK_risingedge && MEM_SPI_state == READ && (read_bit_cntr>width-1'b1)) read_bit_cntr<=next_read_bit_cntr; //count 
 end
 
 //---------------------- OE handling
-always@(*) begin
+always@(posedge CLK) begin
    if(RST) OE = 1'b1;
-	else if(MEM_SPI_state == READ || MEM_SPI_state == WAIT_ONE_BEFORE_READ) OE = 1'b0;//??
+	else if(MEM_SPI_state == READ ||MEM_SPI_state==LAST_READ ||MEM_SPI_state == WAIT_ONE_BEFORE_READ) OE = 1'b0;//??
    else OE = 1'b1;
 end
 
 
 //---------------------- busy handling
-always@(*) begin
+always@(posedge CLK) begin
    if(RST) busy=1'b0;
-	else if(MEM_SPI_state==SEND || MEM_SPI_state==READ || MEM_SPI_state==WAIT_ONE_BEFORE_READ ) busy=1'b1;
+	else if(MEM_SPI_state==SEND || MEM_SPI_state==READ ||MEM_SPI_state==LAST_READ|| MEM_SPI_state==WAIT_ONE_BEFORE_READ ) busy=1'b1;
 	else busy=1'b0;
 end
 
 //---------------------- CS handling
-always@(*) begin
+always@(posedge CLK) begin
    if(RST) CS=1'b1;
-	else if(MEM_SPI_state==SEND || MEM_SPI_state==READ || MEM_SPI_state==WAIT_ONE_BEFORE_READ ) CS=1'b0;
+	else if(MEM_SPI_state==SEND || MEM_SPI_state==READ ||MEM_SPI_state==LAST_READ|| MEM_SPI_state==WAIT_ONE_BEFORE_READ ) CS=1'b0;
 	else CS=1'b1;
 end
 
@@ -177,11 +177,12 @@ assign DQ[3] = quad?data_in_w[send_bit_cntr-1'b1]:1'bZ;
 
 
 //----------------------READING DATA
- always @(negedge SCLK or posedge RST) begin
+ always @(posedge CLK) begin
 	  if(RST)
 			data_out<=48'h000000000000;
-	  else
-         if(MEM_SPI_state==READ) begin
+	  if(MEM_SPI_state==IDLE && trigger && !busy && SCK_fallingedge) data_out<=0;
+	  else if(SCK_fallingedge)
+         if(MEM_SPI_state==READ||MEM_SPI_state==LAST_READ) begin
 			  if(quad)
 				   data_out <= {data_out[43:0], SI_IO0, SO_IO1, WP_IO2, HOLD_IO3};
 				else
