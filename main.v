@@ -54,7 +54,7 @@ module main(
 //    RESET
 
 	 wire RESETBut;
-	 reg [15:0] regRESET=16'hFFFF;
+	 reg [15:0] regRESET=16'h7FFF;
 	 wire RESET ;
  	 assign RESET = regRESET[15] | RESETBut;
 	 
@@ -87,38 +87,39 @@ assign rHOLD_IO3 = RESET?1'b0:HOLD_IO3;
 // MODULES
 
 
-CommandDecoder cmddec(mclk,RESET,bufSCLK, MISO, MOSI,CSEL,SCK,CS,SI_IO0,SO_IO1,WP_IO2,HOLD_IO3);
-//152MHz
+CommandDecoder cmddec(mclk,mem_clk,RESET,bufSCLK, MISO, MOSI,CSEL,CS,SI_IO0,SO_IO1,WP_IO2,HOLD_IO3);
+//140MHz
    DCM_CLKGEN #(
-      .CLKFXDV_DIVIDE(2),       // CLKFXDV divide value (2, 4, 8, 16, 32)
+      .CLKFXDV_DIVIDE(8),       // CLKFXDV divide value (2, 4, 8, 16, 32)
       .CLKFX_DIVIDE(1),         // Divide value - D - (1-256)
       .CLKFX_MD_MAX(0.0),       // Specify maximum M/D ratio for timing anlysis
-      .CLKFX_MULTIPLY(38),       // Multiply value - M - (2-256)
+      .CLKFX_MULTIPLY(150),       // Multiply value - M - (2-256)
       .CLKIN_PERIOD(125),       // Input clock period specified in nS
       .SPREAD_SPECTRUM("NONE"), // Spread Spectrum mode "NONE", "CENTER_LOW_SPREAD", "CENTER_HIGH_SPREAD",
                                 // "VIDEO_LINK_M0", "VIDEO_LINK_M1" or "VIDEO_LINK_M2" 
       .STARTUP_WAIT("FALSE")    // Delay config DONE until DCM_CLKGEN LOCKED (TRUE/FALSE)
    )
    DCM_CLKGEN_inst1 (
-      .CLKFX(none3),         // 1-bit output: Generated clock output
-      .CLKFX180(CLKFX180),   // 1-bit output: Generated clock output 180 degree out of phase from CLKFX.
+      .CLKFX(),         // 1-bit output: Generated clock output
+      .CLKFX180(),   // 1-bit output: Generated clock output 180 degree out of phase from CLKFX.
       .CLKFXDV(mclk),     // 1-bit output: Divided clock output
-      .LOCKED(LOCKED1),       // 1-bit output: Locked output
-      .PROGDONE(PROGDONE1),   // 1-bit output: Active high output to indicate the successful re-programming
-      .STATUS(STATUS1),       // 2-bit output: DCM_CLKGEN status
+      .LOCKED(),       // 1-bit output: Locked output
+      .PROGDONE(),   // 1-bit output: Active high output to indicate the successful re-programming
+      .STATUS(),       // 2-bit output: DCM_CLKGEN status
       .CLKIN(clk_8MHzbuf25),         // 1-bit input: Input clock
-      .FREEZEDCM(FREEZEDCM1), // 1-bit input: Prevents frequency adjustments to input clock
-      .PROGCLK(PROGCLK1),     // 1-bit input: Clock input for M/D reconfiguration
-      .PROGDATA(PROGDATA1),   // 1-bit input: Serial data input for M/D reconfiguration
-      .PROGEN(PROGEN1),       // 1-bit input: Active high program enable
+      .FREEZEDCM(), // 1-bit input: Prevents frequency adjustments to input clock
+      .PROGCLK(),     // 1-bit input: Clock input for M/D reconfiguration
+      .PROGDATA(),   // 1-bit input: Serial data input for M/D reconfiguration
+      .PROGEN(),       // 1-bit input: Active high program enable
       .RST(1'b0)              // 1-bit input: Reset input pin
    );
+/*
 //80MHz
    DCM_CLKGEN #(
-      .CLKFXDV_DIVIDE(8),       // CLKFXDV divide value (2, 4, 8, 16, 32)
+      .CLKFXDV_DIVIDE(2),       // CLKFXDV divide value (2, 4, 8, 16, 32)
       .CLKFX_DIVIDE(1),         // Divide value - D - (1-256)
       .CLKFX_MD_MAX(0.0),       // Specify maximum M/D ratio for timing anlysis
-      .CLKFX_MULTIPLY(25),       // Multiply value - M - (2-256)
+      .CLKFX_MULTIPLY(20),       // Multiply value - M - (2-256)
       .CLKIN_PERIOD(125),       // Input clock period specified in nS
       .SPREAD_SPECTRUM("NONE"), // Spread Spectrum mode "NONE", "CENTER_LOW_SPREAD", "CENTER_HIGH_SPREAD",
                                 // "VIDEO_LINK_M0", "VIDEO_LINK_M1" or "VIDEO_LINK_M2" 
@@ -138,7 +139,7 @@ CommandDecoder cmddec(mclk,RESET,bufSCLK, MISO, MOSI,CSEL,SCK,CS,SI_IO0,SO_IO1,W
       .PROGEN(PROGEN2),       // 1-bit input: Active high program enable
       .RST(1'b0)              // 1-bit input: Reset input pin
    );
-                   
+  */                 
  /*
 ///////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -206,14 +207,14 @@ wire CLK8MHz_int;
 //IBUFG #(.IOSTANDARD("DEFAULT")) IBUF_2 (.O(CLK8MHz_int),.I(CLKin));
 BUFG BUFCLK (.O(CLK8MHz_int),.I(CLKin));
 BUF BUF_25 (.I(CLK8MHz_int),.O(clk_8MHzbuf25));
-BUF BUF_100(.I(CLK8MHz_int),.O(clk_8MHzbuf100));
+//BUF BUF_100(.I(CLK8MHz_int),.O(clk_8MHzbuf100));
 
 IBUFG #(.IOSTANDARD("DEFAULT")) IBUF_1 (.O(bufSCLK),.I(SCLK));
 
 //BUFG BUF_2 (.O(mclk),.I(PLLOutCLK));
 //BUF BUF_3 (.O(SCK),.I(SCKMEMCTRKnoB));
 
-BUFG BUF_4 (.O(oSCKBuff),.I(SCK));
+//BUFG BUF_4 (.O(oSCKBuff),.I(SCK));
 
 IBUF BUF_5 (.O(RESETBut),.I(RESETbutton));
 
@@ -224,7 +225,8 @@ OBUF BUF_SPI4 (.O(SCOPE_HOLD_IO3),.I(rHOLD_IO3));
 
 OBUF BUF_SPI6 (.O(SCOPE_CS),.I(rCS));
 
-
+OBUF BUF_MEM_CLK (.I(mem_clk), .O(oSCK));
+/*
 //BUFG BUF_6 (.O(oMISO),.I(MISO));
 //special buffer to output the PLL generated clock
 ODDR2 #(
@@ -241,5 +243,5 @@ ODDR2 #(
 	.R(1'b0),   // 1-bit reset input
 	.S(1'b0)   // 1-bit set input
 );
-
+*/
 endmodule

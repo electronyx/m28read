@@ -218,10 +218,10 @@ module SPInew(
 	input send_trigger,
 	output reg busy,
 	output reg [47:0] received_data,
-	output reg [63:0] long_dataIN,
-	input [63:0] output_data,
+	output reg [127:0] long_dataIN,
+	input [127:0] output_data,
 	output reg received,
-	input [3:0] InMsgByteCount,
+	input [6:0] InMsgByteCount,
 	input LongMsgComing,
 	input [2:0] SPI_MSG_TYPE
 	);
@@ -248,12 +248,12 @@ reg rMISO;
 assign MISO = CSEL? 1'b0 : rMISO;
 
 
-reg [63:0] output_reg;
+reg [127:0] output_reg;
 //reg [11:0] bit_cntr=12'b000000000000;
 //reg [3:0] short_counter=4'b0000;
-reg [5:0] bit_cntr=6'b000000;
-wire [5:0] new_counter;
-assign new_counter = bit_cntr -6'b000001;
+reg [9:0] bit_cntr=10'b0000000000;
+wire [9:0] new_counter;
+assign new_counter = bit_cntr -10'b0000000001;
 
 
 
@@ -266,7 +266,7 @@ assign new_counter = bit_cntr -6'b000001;
          received<=1'b0;
 			output_reg<=48'h000000000000;	
 			//output_reg<=0;
-         bit_cntr<=6'b000000;	
+         bit_cntr<=10'b0000000000;
          long_dataIN<=0;			
 		end
 		else 
@@ -280,12 +280,12 @@ assign new_counter = bit_cntr -6'b000001;
 					    //bit_cntr<=6'b101111;//47
 					    stateSPI<=RECEIVE_LONG;
 						 bit_cntr<=(InMsgByteCount<<3)-1'b1;
-						 long_dataIN<=0;
+						 long_dataIN<={128{1'b0}};	
 					 end
 					 else begin
 					    stateSPI<=RECEIVE;//transmission starts   
-					    bit_cntr<=6'b001111; //16!
-					    received_data<=48'h0000;	
+					    bit_cntr<=10'b0000001111; //16!
+					    received_data<={48{1'b0}};	
 					 end
 					 busy<=1'b1;	
 					 received<=1'b0;
@@ -293,13 +293,13 @@ assign new_counter = bit_cntr -6'b000001;
 				 else if(send_trigger&&!busy)
 				 begin
 				    stateSPI<=PREP_SEND;//transmission starts 
-					 if(SPI_MSG_TYPE     ==ONE_BY)    bit_cntr<=6'b000111;
+					 if(SPI_MSG_TYPE     ==ONE_BY)    bit_cntr<=10'b0000000111;
                 //else if(SPI_MSG_TYPE==3'b001)  bit_cntr<=12'b111111111111; // standard command is 2B -1 = 15 (4'b1111)
-					 else if(SPI_MSG_TYPE==STD_TWO_BY)bit_cntr<=6'b001111; //send 2bytes = countr = 23
-					 else if(SPI_MSG_TYPE==THREE_BY)  bit_cntr<=6'b010111; //send 3bytes
-					 else if(SPI_MSG_TYPE==SIX_BY)    bit_cntr<=6'b101111; //send 6bytes
+					 else if(SPI_MSG_TYPE==STD_TWO_BY)bit_cntr<=10'b0000001111; //send 2bytes = countr = 23
+					 else if(SPI_MSG_TYPE==THREE_BY)  bit_cntr<=10'b0000010111; //send 3bytes
+					 else if(SPI_MSG_TYPE==SIX_BY)    bit_cntr<=10'b0000101111; //send 6bytes
 					 else if(SPI_MSG_TYPE==LONG)      bit_cntr<=(InMsgByteCount<<3)-1'b1;
-					 else                             bit_cntr<=6'b001111;
+					 else                             bit_cntr<=10'b0000101111;
 					 busy<=1'b1;
 					 
 					 //rMISO<=0;
@@ -308,11 +308,11 @@ assign new_counter = bit_cntr -6'b000001;
 				 end
 				 else begin
 			       stateSPI<=IDLE;
-					 bit_cntr<=6'b000000;
+					 bit_cntr<=10'b0000000000;
 					 busy<=1'b0;
 					 //rMISO<=0;
 					 received<=1'b0;					 
-				    output_reg<=48'h000000000000;	
+				    output_reg<={512{1'b0}};
 			       //output_reg<=0;
          
 				 end
@@ -324,10 +324,10 @@ assign new_counter = bit_cntr -6'b000001;
 			end
 			RECEIVE:
 			  begin
-				 if(bit_cntr>6'b000000) begin
+				 if(bit_cntr>10'b0000000000) begin
 					 if(SCK_fallingedge)//sample the data from MOSI to register
 					 begin
-					    received_data<={received_data[46:0],MOSI};
+					    received_data[47:0]<={received_data[46:0],MOSI};
 						 bit_cntr<=bit_cntr-1'b1;
 					 end
 	             stateSPI<=RECEIVE;
@@ -335,7 +335,7 @@ assign new_counter = bit_cntr -6'b000001;
 				 else begin
 				    if(SCK_fallingedge)//sample last element from MOSI to register
 					 begin
-						 received_data<={received_data[46:0],MOSI};
+						 received_data[47:0]<={received_data[46:0],MOSI};
 						 //bit_cntr<=bit_cntr-1'b1;
 					    stateSPI<=IDLE;
 						 received<=1'b1;
@@ -346,10 +346,10 @@ assign new_counter = bit_cntr -6'b000001;
 			  end
 			 RECEIVE_LONG:
 			  begin
-				 if(bit_cntr>6'b000000) begin
+				 if(bit_cntr>10'b0000000000) begin
 					 if(SCK_fallingedge)//sample the data from MOSI to register
 					 begin
-					 	 long_dataIN<={long_dataIN[62:0],MOSI};
+					 	 long_dataIN<={long_dataIN[126:0],MOSI};
 					    bit_cntr<=bit_cntr-1'b1;
 					 end
 					 stateSPI<=RECEIVE_LONG;
@@ -357,7 +357,7 @@ assign new_counter = bit_cntr -6'b000001;
 				 else begin
 				    if(SCK_fallingedge)//sample the last data from MOSI to register
 					 begin
-						 long_dataIN<={long_dataIN[62:0],MOSI};
+						 long_dataIN<={long_dataIN[126:0],MOSI};
 						 //bit_cntr<=bit_cntr-1'b1;
 					    stateSPI<=IDLE;
 						 received<=1'b1;
@@ -368,7 +368,7 @@ assign new_counter = bit_cntr -6'b000001;
 			 SEND:
 			   begin
 				  
-				  if(bit_cntr>6'b000000) begin
+				  if(bit_cntr>10'b0000000000) begin
 				 	 
 					 if(SCK_risingedge)//send the data to  MISO 
 					 begin
