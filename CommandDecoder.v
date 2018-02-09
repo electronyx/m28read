@@ -127,7 +127,7 @@ parameter       MEM_WRITE =6'b001000, MEM_READ     =6'b001001,    MEM_WAIT =6'b0
                  //9F                
 parameter       GET_MEM_ID=6'b001011, GET_MEM_STREG=6'b001100;
 
-parameter RECEIVE_LONG_MSG=6'b001101, LONG_MSG_WAIT=6'b001110, MEM_ADRR_SET=6'b001111, MEM_ERASE=6'b010000;;
+parameter RECEIVE_LONG_MSG=6'b001101, LONG_MSG_WAIT=6'b001110, MEM_ADRR_SET=6'b001111, MEM_WREN=6'b010000;;
 reg [4:0] CMDstate;
 reg [4:0] next_CMDstate;
 	
@@ -166,7 +166,7 @@ always@(*) begin
 				4'b1010: next_CMDstate=MEM_WRITE;
 				4'b1011: next_CMDstate=MEM_ADRR_SET;
 				4'b1100: next_CMDstate=MEM_READ;
-				4'b1101: next_CMDstate=MEM_ERASE;
+				4'b1101: next_CMDstate=MEM_WREN;
 				default: next_CMDstate=IDLE;
 			endcase
 		end
@@ -192,7 +192,7 @@ always@(*) begin
 		   next_CMDstate = MEM_WAIT;
 	   MEM_READ:
 		   next_CMDstate = MEM_WAIT;
-		MEM_ERASE:
+		MEM_WREN:
 		   next_CMDstate = MEM_WAIT;
 		MEM_WAIT:
 		begin
@@ -306,7 +306,7 @@ always@(posedge CLK) begin
 	else if(CMDstate==LONG_MSG_WAIT) SPI_MSG_TYPE<=LONG;
 	else if(CMDstate==GET_MEM_ID) SPI_MSG_TYPE<=SIX_BY;
 	else if(CMDstate==MEM_WRITE) SPI_MSG_TYPE<=NO_BY;
-	else if(CMDstate==MEM_ERASE) SPI_MSG_TYPE<=NO_BY;
+	else if(CMDstate==MEM_WREN) SPI_MSG_TYPE<=NO_BY;
 	else if(CMDstate==MEM_READ) SPI_MSG_TYPE<=LONG;
 	else if(CMDstate==GET_MEM_STREG) begin
 		if(ADDR==4'b0000) SPI_MSG_TYPE<=ONE_BY; 
@@ -348,7 +348,7 @@ always@(posedge CLK)begin
 		else if(ADDR==4'b0001) MEMCMD<=8'h07; //SR2 status reg2
 		else if(ADDR==4'b0010) MEMCMD<=8'hAB; //RES - electronic signature
 		else if(ADDR==4'b0011) MEMCMD<=8'h35; //CR1
-		else if(ADDR==4'b0100) MEMCMD<=8'hC7; //bulk erase - all to 1
+		else if(ADDR==4'b0100) MEMCMD<=8'hC7; //
    end
 	else if(CMDstate==MEM_WRITE) begin
 	   MEMCMD<=8'h11; //mem_wr command for memory controller
@@ -356,8 +356,8 @@ always@(posedge CLK)begin
 	end
 	else if(CMDstate==MEM_READ) begin
 	   MEMCMD<=8'h0B; //mem_wr command for memory controller
-	end
-	else if(CMDstate==MEM_ERASE) MEMCMD<=8'hC7;//bulk erase
+	end 
+	else if(CMDstate==MEM_WREN) MEMCMD<=8'h06;//
 end
 
 //MEM val -saving space...
@@ -373,7 +373,7 @@ always@(posedge CLK) begin
    else if(CMDstate==MEM_WAIT && !MEM_busy&& MEMTRIG) MEMTRIG<=1'b1; //keep MEMTRIG untill the MEMbusy goes high
 	else if(CMDstate==MEM_WRITE) MEMTRIG<=1'b1;
 	else if(CMDstate==MEM_READ) MEMTRIG<=1'b1;
-	else if(CMDstate==MEM_ERASE) MEMTRIG<=1'b1;
+	else if(CMDstate==MEM_WREN) MEMTRIG<=1'b1;
 		//else if(CMDstate==MEM_WAIT && MEM_busy && MEMTRIG)	MEMTRIG=1'b0; //MEMbusy gone high, clear MEMTRIG
 	else  MEMTRIG<=1'b0;
 end
@@ -393,7 +393,7 @@ always@(posedge CLK) begin
    else if(CMDstate==GET_MEM_STREG &&(ADDR==4'b0011 ||ADDR==4'b0100)) MEM_MSG_TYPE<=NO_BY; 
    else if(CMDstate==MEM_WRITE) MEM_MSG_TYPE<=NO_BY; 
 	else if(CMDstate==MEM_READ) MEM_MSG_TYPE<=LONG; 
-	else if(CMDstate==MEM_ERASE) MEM_MSG_TYPE<=NO_BY; 
+	else if(CMDstate==MEM_WREN) MEM_MSG_TYPE<=NO_BY; 
 	
 end
 //MEM:addr set
