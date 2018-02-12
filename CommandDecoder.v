@@ -72,6 +72,11 @@ reg [127:0] send_data;
 wire SPI_busy;
 reg SPI_trigger;
 
+
+
+
+
+
 parameter NO_BY=3'b000, ONE_BY=3'b001, STD_TWO_BY=3'b010, THREE_BY= 3'b011 ,SIX_BY=3'b110, LONG = 3'b111 ;
 
 reg [2:0] SPI_MSG_TYPE=NO_BY;
@@ -112,6 +117,13 @@ wire sent;
      .reset(CMD_RST),.MEMDATA(MEMDATA),.MEMCMD(MEMCMD),.MEMADDR(MEMADDR),
 	  .MEMVAL(MEMVAL),.MEMTRIG(MEMTRIG),.MEMQUAD(MEMQUAD),.MEM_CTRL_busy(MEM_busy));
 
+
+   reg ram_we;
+	reg [9:0] ram_addr;
+	reg [15:0] ram_din;
+	wire [15:0] ram_dout;
+   ram_controll ram_controll(.clk(CLK), .we(ram_we), .mem_addr(ram_addr), .mem_din(ram_din), .mem_dout(ram_dout)) ;
+
     
 // --------------------------------------------------------------------------------------------------------
 // --------------------------------------------------------------------------------------------------------
@@ -127,7 +139,11 @@ parameter       MEM_WRITE =6'b001000, MEM_READ     =6'b001001,    MEM_WAIT =6'b0
                  //9F                
 parameter       GET_MEM_ID=6'b001011, GET_MEM_STREG=6'b001100;
 
-parameter RECEIVE_LONG_MSG=6'b001101, LONG_MSG_WAIT=6'b001110, MEM_ADRR_SET=6'b001111, MEM_WREN=6'b010000;;
+parameter RECEIVE_LONG_MSG=6'b001101, LONG_MSG_WAIT=6'b001110, MEM_ADRR_SET=6'b001111, MEM_WREN=6'b010000;
+
+//RAM
+parameter RAM_WRITE=6'b010001, RAM_READ=6'b010010, RAM_WAIT=6'b010011;
+
 reg [4:0] CMDstate;
 reg [4:0] next_CMDstate;
 	
@@ -167,6 +183,9 @@ always@(*) begin
 				4'b1011: next_CMDstate=MEM_ADRR_SET;
 				4'b1100: next_CMDstate=MEM_READ;
 				4'b1101: next_CMDstate=MEM_WREN;
+				4'b1110: next_CMDstate=RAM_WRITE;
+				4'b1111: next_CMDstate=RAM_READ;
+				
 				default: next_CMDstate=IDLE;
 			endcase
 		end
@@ -224,8 +243,21 @@ always@(*) begin
 		   if(LongMsgComing&&!SPI_busy)      next_CMDstate=LONG_MSG_WAIT;
 			else if(LongMsgComing&&SPI_busy)  next_CMDstate=LONG_MSG_WAIT;
 			else if(!LongMsgComing&&SPI_busy) next_CMDstate=LONG_MSG_WAIT;
-			else if(!LongMsgComing&&!SPI_busy)next_CMDstate=IDLE;
+			else if(!LongMsgComing&&!SPI_busy) begin
+			   
 			//else if(!LongMsgComing&&!SPI_busy)next_CMDstate=SPI_TR_WAIT; //send data via SPI -- just for echo test 
+		      if(long_dataSPI[39:32]==8'h01) next_CMDstate= RAM_WRITE; //write to MEM
+			   else if(long_dataSPI[39:32]==8'h02) next_CMDstate= RAM_READ; //write to MEM
+				else next_CMDstate=IDLE;
+			end
+		RAM_WRITE:
+		   next_CMDstate=RAM_WAIT;
+		RAM_READ:
+		   next_CMDstate=RAM_WAIT;
+      RAM_WAIT: begin
+         if(CMDstate==RAM_WAIT && ram_we==1'b0) next_CMDstate=SPI_TR_WAIT;
+			else  next_CMDstate=IDLE;
+      end			
 		default:
 		   next_CMDstate=IDLE;
 		endcase
@@ -262,7 +294,8 @@ always@(posedge CLK) begin
 	else if(CMDstate==SEND_ID)                        send_data<={{112{1'b0}},16'b0111100101110101};
 	//                            mem val. received, trigger off, spi not busy and there is something to send..
 	else if(CMDstate==MEM_WAIT && !MEM_busy&&!MEMTRIG &&!SPI_busy && MEM_MSG_TYPE!=NO_BY) send_data<={{80{1'b0}},MEMDATA[47:0]};
-	
+	//else if(CMDstate==RAM_READ) send_data<={{112{1'b0}},ram_dout};
+	else if(CMDstate==RAM_WAIT && ram_we==1'b0) send_data[15:0]<={{112{1'b0}},ram_dout};	
 end
 //-------------------------------
 //--------------------------------Internal test registers
@@ -275,6 +308,24 @@ always@(posedge CLK) begin
 	   REG0[7:0]<=VAL[7:0];
 	   REG1[7:0]<=VAL[7:0];
 	end
+end
+
+
+//-------------------------------------------------------
+//--------------------------------RAM MEMORY
+always@(posedge CLK) begin
+	//receive long command with the Address and data  to be stored to the memory
+	if (CMDstate==LONG_MSG_WAIT&& !LongMsgComing&&!SPI_busy && long_dataSPI[39:32]==8'h01) //write to MEM
+	begin//RAM_WRITE: 
+       ram_we<=1'b1;
+	    ram_addr<=long_dataSPI[25:16];
+		 ram_din<=long_dataSPI[15:0];	
+	end
+   else if (CMDstate==LONG_MSG_WAIT&& !LongMsgComing&&!SPI_busy && long_dataSPI[39:32]==8'h02) //write to MEM
+	begin //RAM_READ
+	   ram_addr<=long_dataSPI[25:16];
+   end
+	else if(CMDstate==RAM_WAIT && ram_we==1'b1) ram_we<=1'b0;
 end
 
 //--------------------------------------------------------------
@@ -296,7 +347,9 @@ always@(posedge CLK) begin
       //flag was off and memory has finished we go to IDLE
 		else if (!SPI_trigger && !SPI_busy)SPI_trigger<=1'b0;
     end
+	 else if(CMDstate==RAM_WAIT && ram_we==1'b0) SPI_trigger<=1'b1;
 	 else SPI_trigger<=SPI_trigger;
+	 
 end
 
 //SPI: msg type
@@ -315,6 +368,7 @@ always@(posedge CLK) begin
 		else if(ADDR==4'b0011) SPI_MSG_TYPE<=ONE_BY;
 		else if(ADDR==4'b0100) SPI_MSG_TYPE<=NO_BY;
 	end
+	else if(CMDstate==RAM_WAIT && ram_we==1'b0) SPI_MSG_TYPE<=STD_TWO_BY;
 end
 
 //SPI: long message counter
